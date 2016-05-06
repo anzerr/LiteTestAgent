@@ -49,7 +49,15 @@ var obj = function(name) {
 			url: function() {
 				var get = function(thread, path) {
 					
+					if (thread.length == 0) {
+						return (path);
+					}
 					
+					var id = Math.floor(Math.random() * thread.length), current = thread[id];
+					if (current.child && current.child.length < 0 && Math.floor(Math.random() * 2) == 1) {
+						return (get(current.child, path + ((path == '') ? '' : '.') + (current._id || id)));
+					}
+					return (path + ((path == '') ? '' : '.') + (current._id || id));
 				}
 				
 				return ('/message/' + get(self._thread, '') + '/reply');
