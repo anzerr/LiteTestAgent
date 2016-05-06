@@ -142,5 +142,3 @@ obj.prototype = {
 		});
 	}
 }
-
-module.exports = obj;
