@@ -3,7 +3,7 @@ var http = require('http');
 		
 var $ = {
 	defined: function(a) {
-		return (a != null && typeof(a) == 'undefined');
+		return (a !== null && typeof(a) !== 'undefined');
 	},
 	randomKey: function(length, charList) {
         var text = '', possible = charList || 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -19,6 +19,7 @@ var obj = function(name) {
 	var self = this;
 	
 	this._name = name;
+	this._sleep = (1000 * 2); 
 	this._thread = [];
 	this._current = 0;
 	this._weight = 0;
@@ -28,7 +29,7 @@ var obj = function(name) {
 		{
 			url: '/message/',
 			method: 'GET',
-			weight: 1,
+			weight: 5,
 			data: function() {
 				
 				return ({});
@@ -37,7 +38,7 @@ var obj = function(name) {
 		{
 			url: '/message/',
 			method: 'PUT',
-			weight: 5,
+			weight: 10,
 			data: function() {
 				return ({
 					name: self._name,
@@ -59,11 +60,12 @@ var obj = function(name) {
 					}
 					return (path + ((path == '') ? '' : '.') + (current._id || id));
 				}
-				
-				return ('/message/' + get(self._thread, '') + '/reply');
+				var url = '/message/' + get(self._thread, '') + '/reply';
+				console.log(url);
+				return (url);
 			},
 			method: 'PUT',
-			weight: 10,
+			weight: 20,
 			data: function() {
 				return ({
 					name: self._name,
@@ -87,8 +89,8 @@ obj.prototype = {
 	request: function(url, method, data, callback) {	
 		var _json = JSON.stringify(data);
 
-		var post_options = {
-			host: '192.168.53.8',
+		var post_req = http.request({
+			host: '172.16.14.194',
 			port: '80',
 			path: '/api' + url,
 			method: method,
@@ -96,10 +98,7 @@ obj.prototype = {
 				'Content-Type': 'application/json',
 				'Content-Length': Buffer.byteLength(_json)
 			}
-		};
-
-		// Set up the request
-		var post_req = http.request(post_options, function(res) {
+		}, function(res) {
 			var body = '';
 			res.setEncoding('utf8');
 			res.on('data', function (chunk) {
@@ -114,20 +113,26 @@ obj.prototype = {
 			});
 		});
 
-		post_req.write(post_data);
+		post_req.write(_json);
 		post_req.end();
 	},
 	
 	run: function() {
 		var self = this;
 		
-		if ($.defined(this._opt[this._current])) {
+		console.log(this._opt.length, this._current);
+		if (!$.defined(this._opt[this._current])) {
 			this._current = 0;
 			this._weight = 0;
+			setTimeout(function() {
+				self.run();
+			}, this._sleep);
+			return (true);
 		}
 	
 		var id = this._current, opt = this._opt[this._current];
-		callback((typeof(opt.url) == 'function') ? opt.url() : opt.url, opt.method, opt.data(), function(data) {
+		console.log(opt, this._current);
+		this.request((typeof(opt.url) == 'function') ? opt.url() : opt.url, opt.method, opt.data(), function(data) {
 			if (opt.url == '/message/' && opt.method == 'GET') {
 				try {
 					self._thread = JSON.parse(data);
@@ -140,13 +145,14 @@ obj.prototype = {
 				self._lastDump = new Date().getTime();
 			}
 			
+			console.log(self._weight, opt.weight);
 			self._weight += 1;
-			if (self._weight < opt.weight) {
+			if (self._weight > opt.weight) {
 				self._weight = 0;
 				self._current += 1;
 			}
 			
-			self._run();
+			self.run();
 		});
 	}
 }
